@@ -1,0 +1,8 @@
+SOBRENOME, Nome. Título. Fonte, ano. Disponível em: link. Acesso em dd mmm. aaaa.
+
+LIMA, William. Requisições HTTP em Go. Micilini, 2025. Disponível em: https://micilini.com/conteudos/golang/requisicoes-http-em-go. Acesso em 24 ago. 2026.
+
+TSOUKALOS, Mihalis. Create a TCP and UDP Client and Server using Go. Akamai Cloud, 2019. Disponível em: read://https_www.akamai.com/?url=https%3A%2F%2Fwww.akamai.com%2Fcloud%2Fguides%2Fdeveloping-udp-and-tcp-clients-and-servers-in-go%2F. Acesso em 31 ago. 2026.
+
+
+Disponível em: https://pkg.go.dev/net. Acesso em 31 ago. 2026.
