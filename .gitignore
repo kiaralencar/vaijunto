@@ -1,0 +1,13 @@
+# Executáveis compilados
+*.exe
+*.out
+
+# Arquivos temporários
+*.tmp
+
+# Arquivos do VS Code
+.vscode/
+
+# Arquivos do sistema Windows
+Thumbs.db
+Desktop.ini
