@@ -1,8 +1,19 @@
 SOBRENOME, Nome. Título. Fonte, ano. Disponível em: link. Acesso em dd mmm. aaaa.
 
-LIMA, William. Requisições HTTP em Go. Micilini, 2025. Disponível em: https://micilini.com/conteudos/golang/requisicoes-http-em-go. Acesso em 24 ago. 2026.
+TSOUKALOS, Mihalis. Create a TCP and UDP Client and Server using Go. Akamai Cloud, 2019. Disponível em: https://www.akamai.com/cloud/guides/developing-udp-and-tcp-clients-and-servers-in-go/. Acesso em 31 ago. 2026.
 
-TSOUKALOS, Mihalis. Create a TCP and UDP Client and Server using Go. Akamai Cloud, 2019. Disponível em: read://https_www.akamai.com/?url=https%3A%2F%2Fwww.akamai.com%2Fcloud%2Fguides%2Fdeveloping-udp-and-tcp-clients-and-servers-in-go%2F. Acesso em 31 ago. 2026.
+THE GO AUTHORS. Package net. Disponível em: https://pkg.go.dev/net. Acesso em 31 ago. 2026.
 
+THE GO AUTHORS. Package encoding/json. Disponível em: https://pkg.go.dev/encoding/json. Acesso em 13 set. 2026.
 
-Disponível em: https://pkg.go.dev/net. Acesso em 31 ago. 2026.
+THE GO AUTHORS. Package sync. Disponível em: https://pkg.go.dev/sync. Acesso em 13 set. 2026.
+
+THE GO AUTHORS. The Go Memory Model. Disponível em: https://go.dev/ref/mem. Acesso em 13 set. 2026.
+
+INTERNET ENGINEERING TASK FORCE. RFC 9293: Transmission Control Protocol (TCP). 2022. Disponível em: https://www.rfc-editor.org/rfc/rfc9293. Acesso em 13 set. 2026.
+
+INTERNET ENGINEERING TASK FORCE. RFC 8259: The JavaScript Object Notation (JSON) Data Interchange Format. 2017. Disponível em: https://www.rfc-editor.org/rfc/rfc8259. Acesso em 13 set. 2026.
+
+REDIS. Redis serialization protocol specification (RESP). Disponível em: https://redis.io/docs/latest/develop/reference/protocol-spec/. Acesso em 13 set. 2026.
+
+JSON LINES. JSON Lines. Disponível em: https://jsonlines.org/. Acesso em 13 set. 2026.

@@ -1,0 +1,28 @@
+# Uso local (mesma máquina) para testar antes de ir para duas máquinas distintas do laboratório. 
+services:
+  servidor:
+    build:
+      context: .
+      dockerfile: docker/servidor.Dockerfile
+    ports:
+      - "8080:8080"
+
+  cliente-motorista:
+    build:
+      context: .
+      dockerfile: docker/cliente-motorista.Dockerfile
+    depends_on:
+      - servidor
+    stdin_open: true
+    tty: true
+    command: ["servidor:8080"]
+
+  cliente-passageiro:
+    build:
+      context: .
+      dockerfile: docker/cliente-passageiro.Dockerfile
+    depends_on:
+      - servidor
+    stdin_open: true
+    tty: true
+    command: ["servidor:8080"]
