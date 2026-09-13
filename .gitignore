@@ -1,6 +1,9 @@
 # Executáveis compilados
 *.out
 
+# Saida do "make build"
+/bin/
+
 # Arquivos temporários
 *.tmp
 
