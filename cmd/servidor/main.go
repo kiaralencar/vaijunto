@@ -9,7 +9,16 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 )
+
+// tempoLimiteInatividade é o timeout de leitura do socket: se um cliente
+// conectar e ficar essa quantidade de tempo sem mandar NENHUMA mensagem, a
+// conexão é encerrada pelo servidor. Sem isso, um cliente travado (ou uma
+// conexão "meio aberta" que nunca fecha de verdade) prenderia a goroutine
+// dele para sempre. 5 minutos é generoso o bastante para não atrapalhar um
+// uso interativo normal (alguém digitando devagar no menu).
+const tempoLimiteInatividade = 5 * time.Minute
 
 // Sessao guarda quem está logado nesta conexão específica. Cada goroutine
 // tem a sua, não é compartilhada (por isso não precisa de mutex).
@@ -52,10 +61,18 @@ func atendeCliente(conn net.Conn, estado *Estado) {
 	leitor := bufio.NewReader(conn)
 
 	for {
+		// Reseta o prazo a cada mensagem: o cliente tem até
+		// tempoLimiteInatividade a partir de AGORA para mandar a próxima linha.
+		conn.SetReadDeadline(time.Now().Add(tempoLimiteInatividade))
+
 		linha, err := leitor.ReadString('\n')
 		if err != nil {
-			// Se o cliente desconectou (ou caiu abruptamente), só encerra esta
-			// goroutine. O servidor e os outros clientes seguem intactos.
+			if netErr, ehErroDeRede := err.(net.Error); ehErroDeRede && netErr.Timeout() {
+				fmt.Println("cliente inativo por muito tempo, encerrando conexao")
+			}
+			// Em qualquer um dos casos (timeout, cliente desconectou, cliente
+			// caiu abruptamente), só encerra esta goroutine. O servidor e os
+			// outros clientes seguem intactos.
 			return
 		}
 

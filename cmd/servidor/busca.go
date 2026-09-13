@@ -1,6 +1,10 @@
 package main
 
-import "vaijunto/internal/dominio"
+import (
+	"sort"
+
+	"vaijunto/internal/dominio"
+)
 
 // aresta representa um trecho com assento livre, no grafo de busca. de/para
 // são cidades (os nós). Cada aresta sabe a que carona pertence, para que o
@@ -82,6 +86,18 @@ func (e *Estado) BuscarItinerarios(origem, destino, data string) []itinerarioEnc
 		}
 	}
 	dfs(origem)
+
+	// Critério de ordenação (item 5 do barema: "quais critérios foram usados
+	// para... ordenar as opções apresentadas ao passageiro"): mais barato
+	// primeiro; em caso de empate no preço, o itinerário com menos itens (menos
+	// baldeações entre motoristas) vem primeiro, por ser mais simples de
+	// executar na prática.
+	sort.Slice(resultados, func(i, j int) bool {
+		if resultados[i].preco != resultados[j].preco {
+			return resultados[i].preco < resultados[j].preco
+		}
+		return len(resultados[i].itens) < len(resultados[j].itens)
+	})
 
 	return resultados
 }

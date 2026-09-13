@@ -3,6 +3,34 @@
 Protocolo de aplicação próprio, sobre socket TCP puro (pacote `net` do Go).
 Sem HTTP, sem framework de mensageria ou RPC.
 
+## Por que TCP, e não UDP
+
+O enunciado já direciona para o "subsistema de rede TCP/IP", mas a escolha
+entre TCP e UDP dentro dele tem uma justificativa técnica própria, não é só
+seguir a letra do enunciado:
+
+- **Confiabilidade e ordem importam aqui.** Uma operação como `RESERVAR`
+  precisa chegar inteira, sem corromper, e — quando o mesmo cliente manda
+  várias operações em sequência (ex.: `LOGIN` depois `RESERVAR`) — **na
+  ordem** em que foram enviadas. TCP garante as duas coisas nativamente
+  (entrega confiável, ordenada, sem duplicação). Com UDP, um datagrama pode
+  chegar fora de ordem, duplicado ou simplesmente nunca chegar, e cabe à
+  aplicação detectar e corrigir isso.
+- **Reimplementar isso por conta própria seria retrabalho sem benefício.**
+  Se usássemos UDP, teríamos que inventar nosso próprio esquema de
+  confirmação (ACK), retransmissão e reordenação — exatamente o que o TCP já
+  resolve na camada de transporte. Para um protocolo de requisição-resposta
+  como o nosso (pedido → resposta, sequencial, na mesma conexão), isso não
+  traria vantagem nenhuma, só complexidade.
+- **UDP se justificaria** em cenários com tolerância a perda e sensibilidade a
+  atraso (streaming de vídeo, jogos em tempo real) — não é o caso de reservar
+  assento, onde perder uma mensagem silenciosamente seria um bug grave, não
+  um detalhe aceitável.
+- **Conexão persistente também ajuda no nosso modelo**: como cada cliente
+  mantém uma conexão TCP aberta durante toda a sessão (múltiplas operações,
+  uma mesma conexão), o custo de estabelecer a conexão (handshake do TCP)
+  acontece uma vez só, no login — não a cada operação.
+
 ## Transporte e enquadramento
 
 TCP entrega um fluxo contínuo de bytes — não sabe onde uma mensagem termina e
@@ -144,6 +172,13 @@ caminhos possíveis; trechos consecutivos da mesma carona são agrupados num
 único item de reserva. A busca é limitada a 6 trechos e 10 itinerários por
 consulta, para não explodir combinatoriamente.
 
+Critério de ordenação da lista devolvida: **preço total, do mais barato para
+o mais caro**; em caso de empate, o itinerário com **menos itens** (menos
+trocas de motorista) vem primeiro, por ser mais simples de executar na
+prática. Sem essa ordenação explícita, a lista sairia numa ordem
+não-determinística — mapas em Go são iterados em ordem aleatória de
+propósito — o que seria uma falha de projeto, não só um detalhe estético.
+
 ### `RESERVAR`
 
 Pedido `dados`:
@@ -211,3 +246,26 @@ Cada goroutine (uma por conexão de cliente) só mexe no estado dentro de
 locks (o que geraria risco de deadlock quando uma reserva mexe em várias
 caronas ao mesmo tempo), ao custo de menos paralelismo interno — trade-off
 medido pelo teste de carga (`docs/` ou `cmd/servidor/*_test.go`).
+
+## Confiabilidade
+
+**Queda abrupta de cliente**: cada conexão roda numa goroutine própria
+(`atendeCliente`, em `main.go`). Um erro de leitura nessa goroutine — cliente
+fechou o socket, caiu a rede, ou o timeout abaixo disparou — encerra **só
+aquela goroutine**. O estado do servidor e as demais conexões continuam
+intactos.
+
+**Timeout de socket**: cada leitura tem um prazo (`conn.SetReadDeadline`,
+reiniciado a cada mensagem recebida) de 5 minutos de inatividade. Se um
+cliente conectar e nunca mandar nada (ou parar de responder no meio de uma
+sessão), a conexão é fechada pelo servidor depois desse prazo, liberando a
+goroutine em vez de mantê-la presa para sempre.
+
+**Assento permanentemente bloqueado — por que não acontece aqui**: a
+operação `RESERVAR` é **atômica e de um passo só** (ver seção anterior): ela
+valida e confirma tudo dentro da mesma trava, na mesma chamada. Não existe
+um estado intermediário de "reservado, aguardando confirmação" que possa
+ficar pendurado se o cliente cair no meio do caminho — ou a reserva já
+existe por completo no momento em que a resposta é montada, ou nunca chegou
+a existir. Por isso não há necessidade de um mecanismo de expiração de
+reserva "pendente": não existe reserva pendente neste desenho.
