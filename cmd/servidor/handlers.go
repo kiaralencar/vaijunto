@@ -44,7 +44,10 @@ func erro(pedido protocolo.Pedido, msg string) protocolo.Resposta {
 }
 
 func ok(pedido protocolo.Pedido, dados interface{}) protocolo.Resposta {
-	b, _ := json.Marshal(dados)
+	b, err := json.Marshal(dados)
+	if err != nil {
+		return erro(pedido, "erro interno ao montar resposta: "+err.Error())
+	}
 	return protocolo.Resposta{Tipo: pedido.Tipo, ID: pedido.ID, Ok: true, Dados: b}
 }
 

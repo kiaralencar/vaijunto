@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"vaijunto/internal/protocolo"
 )
@@ -31,10 +32,21 @@ func main() {
 	leitorTeclado := bufio.NewReader(os.Stdin)
 
 	enviar := func(tipo string, dados interface{}) protocolo.Resposta {
-		corpo, _ := json.Marshal(dados)
+		corpo, err := json.Marshal(dados)
+		if err != nil {
+			fmt.Println("Erro interno ao montar o pedido:", err)
+			os.Exit(1)
+		}
 		pedido := protocolo.Pedido{Tipo: tipo, Dados: corpo}
-		linha, _ := json.Marshal(pedido)
-		conn.Write(append(linha, '\n'))
+		linha, err := json.Marshal(pedido)
+		if err != nil {
+			fmt.Println("Erro interno ao montar o pedido:", err)
+			os.Exit(1)
+		}
+		if _, err := conn.Write(append(linha, '\n')); err != nil {
+			fmt.Println("Conexao com o servidor caiu ao enviar:", err)
+			os.Exit(1)
+		}
 
 		respLinha, err := leitorServidor.ReadString('\n')
 		if err != nil {
@@ -42,12 +54,15 @@ func main() {
 			os.Exit(1)
 		}
 		var resp protocolo.Resposta
-		json.Unmarshal([]byte(respLinha), &resp)
+		if err := json.Unmarshal([]byte(respLinha), &resp); err != nil {
+			fmt.Println("Resposta invalida do servidor:", err)
+			os.Exit(1)
+		}
 		return resp
 	}
 
 	for {
-		nome := lerLinha(leitorTeclado, "Nome: ")
+		nome := lerLinha(leitorTeclado, "\nNome: ")
 		senha := lerLinha(leitorTeclado, "Senha: ")
 
 		resp := enviar(protocolo.Login, protocolo.LoginReq{Nome: nome, Senha: senha})
@@ -100,6 +115,43 @@ func lerLinha(leitor *bufio.Reader, prompt string) string {
 	return strings.TrimSpace(linha)
 }
 
+// lerData insiste no mesmo campo até receber uma data real, exatamente no
+// formato DD/MM/AAAA (dia/mês/ano válidos de verdade, não só o formato).
+func lerData(leitor *bufio.Reader, prompt string) string {
+	for {
+		data := lerLinha(leitor, prompt)
+		if _, err := time.Parse("02/01/2006", data); err != nil {
+			fmt.Println("Data invalida! Use exatamente o formato DD/MM/AAAA (ex.: 20/09/2026).")
+			continue
+		}
+		return data
+	}
+}
+
+// lerInteiro insiste no mesmo campo até receber um número inteiro de verdade
+func lerInteiro(leitor *bufio.Reader, prompt string) int {
+	for {
+		texto := lerLinha(leitor, prompt)
+		valor, err := strconv.Atoi(texto)
+		if err != nil {
+			fmt.Println("Valor invalido! Digite um numero inteiro.")
+			continue
+		}
+		return valor
+	}
+}
+
+// decodificar tenta decodificar os dados que vieram na resposta do servidor
+// na struct esperada. Se a resposta vier corrompida ou num formato
+// inesperado, avisa e devolve false em vez de seguir com dados incompletos.
+func decodificar(dados []byte, v interface{}) bool {
+	if err := json.Unmarshal(dados, v); err != nil {
+		fmt.Println("Resposta invalida do servidor:", err)
+		return false
+	}
+	return true
+}
+
 func listarCaronas(enviar func(string, interface{}) protocolo.Resposta) {
 	resp := enviar(protocolo.ListarCaronas, struct{}{})
 	if !resp.Ok {
@@ -107,7 +159,9 @@ func listarCaronas(enviar func(string, interface{}) protocolo.Resposta) {
 		return
 	}
 	var dados protocolo.ListarCaronasResp
-	json.Unmarshal(resp.Dados, &dados)
+	if !decodificar(resp.Dados, &dados) {
+		return
+	}
 	if len(dados.Caronas) == 0 {
 		fmt.Println("Nenhuma carona publicada ainda.")
 		return
@@ -124,7 +178,7 @@ func listarCaronas(enviar func(string, interface{}) protocolo.Resposta) {
 func buscarEReservar(leitor *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
 	origem := lerLinha(leitor, "Origem: ")
 	destino := lerLinha(leitor, "Destino: ")
-	data := lerLinha(leitor, "Data (formato DD/MM/AAAA): ")
+	data := lerData(leitor, "Data (formato DD/MM/AAAA): ")
 
 	resp := enviar(protocolo.BuscarItinerarios, protocolo.BuscarItinerariosReq{
 		Origem: origem, Destino: destino, Data: data,
@@ -134,28 +188,35 @@ func buscarEReservar(leitor *bufio.Reader, enviar func(string, interface{}) prot
 		return
 	}
 	var dados protocolo.BuscarItinerariosResp
-	json.Unmarshal(resp.Dados, &dados)
+	if !decodificar(resp.Dados, &dados) {
+		return
+	}
 	if len(dados.Itinerarios) == 0 {
 		fmt.Println("Nenhum itinerário encontrado para essa origem/destino/data.")
 		return
 	}
 
 	for i, it := range dados.Itinerarios {
-		fmt.Printf("[%d] preco total=%.2f\n", i, it.Preco)
+		fmt.Printf("[%d] Preco total = %.2f\n", i, it.Preco)
 		for _, item := range it.Itens {
-			fmt.Printf("     %s -> %s (carona %s, trechos %d-%d)\n",
+			fmt.Printf("    %s -> %s (Carona %s | Trechos %d-%d)\n",
 				item.Origem, item.Destino, item.CaronaID, item.TrechoInicio, item.TrechoFim)
 		}
 	}
 
-	escolha := lerLinha(leitor, "Escolha o itinerario pelo numero (Enter para nao reservar): ")
-	if escolha == "" {
-		return
-	}
-	idx, err := strconv.Atoi(escolha)
-	if err != nil || idx < 0 || idx >= len(dados.Itinerarios) {
-		fmt.Println("Numero invalido!")
-		return
+	var idx int
+	for {
+		escolha := lerLinha(leitor, "Escolha o itinerario pelo numero (Enter para nao reservar): ")
+		if escolha == "" {
+			return
+		}
+		valor, err := strconv.Atoi(escolha)
+		if err != nil || valor < 0 || valor >= len(dados.Itinerarios) {
+			fmt.Println("Numero invalido! Escolha um dos itinerarios listados acima.")
+			continue
+		}
+		idx = valor
+		break
 	}
 
 	respReserva := enviar(protocolo.Reservar, protocolo.ReservarReq{Itens: dados.Itinerarios[idx].Itens})
@@ -164,8 +225,10 @@ func buscarEReservar(leitor *bufio.Reader, enviar func(string, interface{}) prot
 		return
 	}
 	var reservaFeita protocolo.ReservarResp
-	json.Unmarshal(respReserva.Dados, &reservaFeita)
-	fmt.Println("Reserva confirmada. ID: ", reservaFeita.ReservaID)
+	if !decodificar(respReserva.Dados, &reservaFeita) {
+		return
+	}
+	fmt.Println("Reserva confirmada. ID:", reservaFeita.ReservaID)
 }
 
 func reservarManual(leitor *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
@@ -175,8 +238,8 @@ func reservarManual(leitor *bufio.Reader, enviar func(string, interface{}) proto
 		if id == "" {
 			break
 		}
-		inicio, _ := strconv.Atoi(lerLinha(leitor, "Trecho inicial: "))
-		fim, _ := strconv.Atoi(lerLinha(leitor, "Trecho final (igual ao inicial se for apenas um trecho): "))
+		inicio := lerInteiro(leitor, "Trecho inicial: ")
+		fim := lerInteiro(leitor, "Trecho final (igual ao inicial se for apenas um trecho): ")
 		itens = append(itens, protocolo.ItemPedido{CaronaID: id, TrechoInicio: inicio, TrechoFim: fim})
 	}
 	if len(itens) == 0 {
@@ -190,8 +253,10 @@ func reservarManual(leitor *bufio.Reader, enviar func(string, interface{}) proto
 		return
 	}
 	var dados protocolo.ReservarResp
-	json.Unmarshal(resp.Dados, &dados)
-	fmt.Println("Reserva confirmada. ID: ", dados.ReservaID)
+	if !decodificar(resp.Dados, &dados) {
+		return
+	}
+	fmt.Println("Reserva confirmada. ID:", dados.ReservaID)
 }
 
 func listarMinhasReservas(enviar func(string, interface{}) protocolo.Resposta) {
@@ -201,7 +266,9 @@ func listarMinhasReservas(enviar func(string, interface{}) protocolo.Resposta) {
 		return
 	}
 	var dados protocolo.ListarMinhasReservasResp
-	json.Unmarshal(resp.Dados, &dados)
+	if !decodificar(resp.Dados, &dados) {
+		return
+	}
 	if len(dados.Reservas) == 0 {
 		fmt.Println("Voce nao tem reservas ativas.")
 		return

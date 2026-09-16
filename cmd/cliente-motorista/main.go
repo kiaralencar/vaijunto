@@ -6,10 +6,12 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"vaijunto/internal/protocolo"
 )
@@ -31,10 +33,21 @@ func main() {
 	leitorTeclado := bufio.NewReader(os.Stdin)
 
 	enviar := func(tipo string, dados interface{}) protocolo.Resposta {
-		corpo, _ := json.Marshal(dados)
+		corpo, err := json.Marshal(dados)
+		if err != nil {
+			fmt.Println("Erro interno ao montar o pedido:", err)
+			os.Exit(1)
+		}
 		pedido := protocolo.Pedido{Tipo: tipo, Dados: corpo}
-		linha, _ := json.Marshal(pedido)
-		conn.Write(append(linha, '\n'))
+		linha, err := json.Marshal(pedido)
+		if err != nil {
+			fmt.Println("Erro interno ao montar o pedido:", err)
+			os.Exit(1)
+		}
+		if _, err := conn.Write(append(linha, '\n')); err != nil {
+			fmt.Println("Conexao com o servidor caiu ao enviar:", err)
+			os.Exit(1)
+		}
 
 		respLinha, err := leitorServidor.ReadString('\n')
 		if err != nil {
@@ -42,7 +55,10 @@ func main() {
 			os.Exit(1)
 		}
 		var resp protocolo.Resposta
-		json.Unmarshal([]byte(respLinha), &resp)
+		if err := json.Unmarshal([]byte(respLinha), &resp); err != nil {
+			fmt.Println("Resposta invalida do servidor:", err)
+			os.Exit(1)
+		}
 		return resp
 	}
 
@@ -98,6 +114,55 @@ func lerLinha(leitor *bufio.Reader, prompt string) string {
 	return strings.TrimSpace(linha)
 }
 
+// lerData insiste no mesmo campo até receber uma data real, no formato DD/MM/AAAA
+func lerData(leitor *bufio.Reader, prompt string) string {
+	for {
+		data := lerLinha(leitor, prompt)
+		if _, err := time.Parse("02/01/2006", data); err != nil {
+			fmt.Println("Data invalida! Use exatamente o formato DD/MM/AAAA (ex.: 20/09/2026).")
+			continue
+		}
+		return data
+	}
+}
+
+// lerValor insiste no mesmo campo até receber um número de verdade (inteiro ou com casas decimais)
+func lerValor(leitor *bufio.Reader, prompt string) float64 {
+	for {
+		texto := lerLinha(leitor, prompt)
+		valor, err := strconv.ParseFloat(texto, 64)
+		if err != nil || math.IsNaN(valor) || math.IsInf(valor, 0) {
+			fmt.Println("Valor invalido! Digite um numero (ex.: 12 ou 12.60).")
+			continue
+		}
+		return valor
+	}
+}
+
+// lerInteiro é o mesmo princípio, para campos que precisam de um inteiro
+func lerInteiro(leitor *bufio.Reader, prompt string) int {
+	for {
+		texto := lerLinha(leitor, prompt)
+		valor, err := strconv.Atoi(texto)
+		if err != nil {
+			fmt.Println("Valor invalido! Digite um numero inteiro (ex.: 2).")
+			continue
+		}
+		return valor
+	}
+}
+
+// decodificar tenta decodificar os dados que vieram na resposta do servidor
+// na struct esperada. Se a resposta vier corrompida ou num formato
+// inesperado, avisa e devolve false em vez de seguir com dados incompletos.
+func decodificar(dados []byte, v interface{}) bool {
+	if err := json.Unmarshal(dados, v); err != nil {
+		fmt.Println("Resposta invalida do servidor:", err)
+		return false
+	}
+	return true
+}
+
 func publicarCarona(leitor *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
 	rotaTexto := lerLinha(leitor, "Rota:\nOBS.: Escreva as cidades separadas por virgula, "+
 		"em ordem. Ex: Salvador, Vitoria da Conquista): ")
@@ -115,14 +180,14 @@ func publicarCarona(leitor *bufio.Reader, enviar func(string, interface{}) proto
 	}
 	numTrechos := len(rota) - 1
 
-	data := lerLinha(leitor, "Data (formato DD/MM/AAAA): ")
+	data := lerData(leitor, "Data (formato DD/MM/AAAA): ")
 
 	precos := make([]float64, numTrechos)
 	assentos := make([]int, numTrechos)
 	for i := 0; i < numTrechos; i++ {
-		fmt.Printf("Trecho %d: %s -> %s\n", i, rota[i], rota[i+1])
-		precos[i], _ = strconv.ParseFloat(lerLinha(leitor, "Valor: "), 64)
-		assentos[i], _ = strconv.Atoi(lerLinha(leitor, "Quantidade de assentos: "))
+		fmt.Printf("\nTrecho %d: %s -> %s\n", i, rota[i], rota[i+1])
+		precos[i] = lerValor(leitor, "Valor: ")
+		assentos[i] = lerInteiro(leitor, "Quantidade de assentos: ")
 	}
 
 	resp := enviar(protocolo.PublicarCarona, protocolo.PublicarCaronaReq{
@@ -133,8 +198,10 @@ func publicarCarona(leitor *bufio.Reader, enviar func(string, interface{}) proto
 		return
 	}
 	var dados protocolo.PublicarCaronaResp
-	json.Unmarshal(resp.Dados, &dados)
-	fmt.Println("Carona publicada. ID: ", dados.CaronaID)
+	if !decodificar(resp.Dados, &dados) {
+		return
+	}
+	fmt.Println("Carona publicada. ID:", dados.CaronaID)
 }
 
 func listarCaronas(enviar func(string, interface{}) protocolo.Resposta) {
@@ -144,9 +211,11 @@ func listarCaronas(enviar func(string, interface{}) protocolo.Resposta) {
 		return
 	}
 	var dados protocolo.ListarCaronasResp
-	json.Unmarshal(resp.Dados, &dados)
+	if !decodificar(resp.Dados, &dados) {
+		return
+	}
 	if len(dados.Caronas) == 0 {
-		fmt.Println("Nenhuma carona publicada aind.a")
+		fmt.Println("Nenhuma carona publicada ainda.")
 		return
 	}
 	for _, c := range dados.Caronas {
@@ -163,7 +232,9 @@ func consultarPassageiros(leitor *bufio.Reader, enviar func(string, interface{})
 		return
 	}
 	var dados protocolo.ConsultarPassageirosResp
-	json.Unmarshal(resp.Dados, &dados)
+	if !decodificar(resp.Dados, &dados) {
+		return
+	}
 	if len(dados.Passageiros) == 0 {
 		fmt.Println("Nenhum passageiro nesta carona ainda.")
 		return

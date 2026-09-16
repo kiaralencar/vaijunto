@@ -76,6 +76,9 @@ func atendeCliente(conn net.Conn, estado *Estado) {
 		if err != nil {
 			continue
 		}
-		conn.Write(append(saida, '\n'))
+		if _, err := conn.Write(append(saida, '\n')); err != nil {
+			fmt.Println("Cliente", sessao.Nome, "erro ao enviar resposta, encerrando conexao:", conn.RemoteAddr())
+			return
+		}
 	}
 }

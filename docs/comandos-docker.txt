@@ -1,0 +1,68 @@
+COMANDOS DOCKER — Conteúdo gerado por IA para me auxiliar na apresentação
+=========================================================================
+
+Regra de ouro: toda vez que o codigo mudar desde a ultima vez que voce
+buildou, e preciso rodar "docker build" de novo daquela imagem especifica
+ANTES de rodar "docker run". Rebuildar uma imagem nao rebuilda as outras —
+sao 3 imagens totalmente independentes (servidor, cliente-motorista,
+cliente-passageiro).
+
+
+MAQUINA A — SERVIDOR
+------------------------------------------------
+# Ver o que ja esta rodando (se for a 2a vez usando essa maquina)
+docker ps
+
+# Parar o container antigo, se houver (trocar <ID> pelo que apareceu acima)
+docker stop <ID>
+
+# Reconstruir a imagem com o codigo atual
+docker build -f docker/servidor.Dockerfile -t vaijunto-servidor .
+
+# Rodar (fica ocupando este terminal, deixar aberto e visivel)
+docker run -p 8080:8080 vaijunto-servidor
+
+# Em outro terminal, descobrir o IP desta maquina na rede do laboratorio
+# (anotar esse numero, e o que as outras maquinas vao usar)
+hostname -I
+
+
+MAQUINA B — CLIENTE MOTORISTA
+------------------------------------------------
+docker build -f docker/cliente-motorista.Dockerfile -t vaijunto-cliente-motorista .
+docker run -it --rm vaijunto-cliente-motorista <IP-DA-MAQUINA-A>:8080
+
+
+MAQUINA B (outro terminal) OU MAQUINA C — CLIENTE PASSAGEIRO
+------------------------------------------------
+docker build -f docker/cliente-passageiro.Dockerfile -t vaijunto-cliente-passageiro .
+docker run -it --rm vaijunto-cliente-passageiro <IP-DA-MAQUINA-A>:8080
+
+
+SE PRECISAR TESTAR NUMA MAQUINA SO ANTES (sanity check rapido)
+------------------------------------------------
+docker compose down
+docker compose up --build servidor
+# em outro terminal:
+docker compose run --build --rm cliente-motorista
+docker compose run --build --rm cliente-passageiro
+
+
+SE ALGO DER ERRADO
+------------------------------------------------
+"permission denied ... docker.sock"
+  -> usuario sem permissao Docker nessa maquina. Trocar para um usuario com
+     acesso: "su - <usuario-com-permissao>", depois repetir os comandos.
+
+"port is already allocated"
+  -> algo (provavelmente um container antigo) ja esta usando a porta 8080.
+     "docker ps" para achar, "docker stop <ID>" para parar.
+
+Cliente conectando errado / codigo antigo aparecendo
+  -> esqueceu de rodar "docker build" de novo apos atualizar o codigo.
+     Rebuildar a imagem especifica que estiver desatualizada.
+
+"Could not resolve host" / ping nao responde entre maquinas
+  -> problema de rede do laboratorio entre as maquinas, nao e o codigo.
+     Confirmar o IP com "hostname -I" na Maquina A e testar
+     "ping -c 4 <IP>" a partir da outra maquina.
