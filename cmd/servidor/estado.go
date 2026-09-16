@@ -2,11 +2,23 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"sync"
+	"time"
+
 	"vaijunto/internal/dominio"
 )
 
-// Estado é TODO o estado do servidor: todas as caronas, todas as reservas de
+// dataParaComparar converte "DD/MM/AAAA" num tempo comparável.
+func dataParaComparar(data string) time.Time {
+	t, err := time.Parse("02/01/2006", data)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
+// Estado é todo o estado do servidor: todas as caronas, todas as reservas de
 // todos os passageiros. Um único mutex protege tudo.
 type Estado struct {
 	mu             sync.Mutex
@@ -14,13 +26,41 @@ type Estado struct {
 	proximaReserva int
 	caronas        map[string]*dominio.Carona
 	reservas       map[string]*dominio.Reserva
+	senhas         map[string]string
 }
 
 func NovoEstado() *Estado {
 	return &Estado{
 		caronas:  make(map[string]*dominio.Carona),
 		reservas: make(map[string]*dominio.Reserva),
+		senhas:   make(map[string]string),
 	}
+}
+
+// Autentica resolve o problema de dois clientes usarem o mesmo nome
+func (e *Estado) Autentica(nome, senha string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	senhaExistente, jaExiste := e.senhas[nome]
+	if !jaExiste {
+		e.senhas[nome] = senha
+		return nil
+	}
+	if senhaExistente != senha {
+		return fmt.Errorf("nome ja esta em uso com outra senha")
+	}
+	return nil
+}
+
+// BuscarCarona devolve uma carona pelo ID, para os handlers que só precisam
+// ler dados dela (ex.: nomes de cidade para exibir numa listagem de reservas).
+func (e *Estado) BuscarCarona(caronaID string) (*dominio.Carona, bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	c, existe := e.caronas[caronaID]
+	return c, existe
 }
 
 func (e *Estado) PublicarCarona(motorista string, rota []string, data string, preco []float64, assentos []int) *dominio.Carona {
@@ -56,6 +96,14 @@ func (e *Estado) ListarCaronas() []*dominio.Carona {
 			lista = append(lista, c)
 		}
 	}
+
+	// Ordenação: data mais próxima primeiro. Desempate pelo ID (ordem de criação).
+	sort.Slice(lista, func(i, j int) bool {
+		if lista[i].Data != lista[j].Data {
+			return dataParaComparar(lista[i].Data).Before(dataParaComparar(lista[j].Data))
+		}
+		return lista[i].ID < lista[j].ID
+	})
 	return lista
 }
 
@@ -71,15 +119,53 @@ func (e *Estado) CancelarCarona(motorista, caronaID string) error {
 		return fmt.Errorf("carona pertence a outro motorista")
 	}
 	c.Ativa = false
+
+	// Toda reserva que dependia desta carona deixa de valer — mesmo que
+	// combinasse trechos de OUTRA carona ainda ativa, porque o itinerário
+	// como um todo não pode mais ser cumprido. Os assentos que essa reserva
+	// ocupava em outras caronas (ainda ativas) voltam a ficar livres.
+	for _, r := range e.reservas {
+		if !r.Ativa {
+			continue
+		}
+		afetada := false
+		for _, item := range r.Itens {
+			if item.CaronaID == caronaID {
+				afetada = true
+				break
+			}
+		}
+		if !afetada {
+			continue
+		}
+		for _, item := range r.Itens {
+			if item.CaronaID == caronaID {
+				continue
+			}
+			if outraCarona, existe := e.caronas[item.CaronaID]; existe {
+				for t := item.TrechoInicio; t <= item.TrechoFim; t++ {
+					outraCarona.AssentosLivres[t]++
+				}
+			}
+		}
+		r.Ativa = false
+	}
 	return nil
 }
 
-func (e *Estado) ConsultarPassageiros(caronaID string) ([]dominio.PassageiroNoTrecho, error) {
+// ConsultarPassageiros só devolve os passageiros de uma carona para o
+// motorista dela — outro motorista não pode ver quem reservou a
+// carona de outra pessoa.
+func (e *Estado) ConsultarPassageiros(solicitante, caronaID string) ([]dominio.PassageiroNoTrecho, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if _, existe := e.caronas[caronaID]; !existe {
+	c, existe := e.caronas[caronaID]
+	if !existe {
 		return nil, fmt.Errorf("carona nao encontrada")
+	}
+	if c.Motorista != solicitante {
+		return nil, fmt.Errorf("carona pertence a outro motorista")
 	}
 
 	var passageiros []dominio.PassageiroNoTrecho

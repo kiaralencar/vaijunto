@@ -33,7 +33,8 @@ type Resposta struct {
 }
 
 type LoginReq struct {
-	Nome string `json:"nome"`
+	Nome  string `json:"nome"`
+	Senha string `json:"senha,omitempty"`
 }
 
 type PublicarCaronaReq struct {
@@ -81,10 +82,17 @@ type ConsultarPassageirosResp struct {
 // Um pedido de reserva é uma lista de itens. Cada item é um intervalo de
 // trechos de uma carona. 
 
+// ItemPedido é usado tanto em pedidos (RESERVAR só precisa de CaronaID +
+// TrechoInicio/TrechoFim) quanto em respostas mais ricas (LISTAR_MINHAS_RESERVAS
+// e BUSCAR_ITINERARIOS preenchem também Origem/Destino/Preco, só para exibição —
+// o servidor ignora esses três campos quando o item chega dentro de um pedido).
 type ItemPedido struct {
-	CaronaID     string `json:"carona_id"`
-	TrechoInicio int    `json:"trecho_inicio"`
-	TrechoFim    int    `json:"trecho_fim"`
+	CaronaID     string  `json:"carona_id"`
+	TrechoInicio int     `json:"trecho_inicio"`
+	TrechoFim    int     `json:"trecho_fim"`
+	Origem       string  `json:"origem,omitempty"`
+	Destino      string  `json:"destino,omitempty"`
+	Preco        float64 `json:"preco,omitempty"`
 }
 
 type ReservarReq struct {

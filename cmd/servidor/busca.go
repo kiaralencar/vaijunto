@@ -2,11 +2,10 @@ package main
 
 import (
 	"sort"
-
 	"vaijunto/internal/dominio"
 )
 
-// aresta representa um trecho com assento livre, no grafo de busca. de/para
+// Aresta representa um trecho com assento livre, no grafo de busca. De/para
 // são cidades (os nós). Cada aresta sabe a que carona pertence, para que o
 // caminho encontrado possa virar um pedido de reserva de verdade.
 type aresta struct {
@@ -25,7 +24,7 @@ type itinerarioEncontrado struct {
 
 const (
 	profundidadeMaximaBusca = 6  // No maximo 6 trechos por itinerario
-	maxItinerarios           = 10 // Para de procurar depois de achar 10 caminhos
+	maxItinerarios          = 10 // Para de procurar depois de achar 10 caminhos
 )
 
 // BuscarItinerarios monta o grafo (cidade = no, trecho com assento livre =
@@ -87,11 +86,8 @@ func (e *Estado) BuscarItinerarios(origem, destino, data string) []itinerarioEnc
 	}
 	dfs(origem)
 
-	// Critério de ordenação (item 5 do barema: "quais critérios foram usados
-	// para... ordenar as opções apresentadas ao passageiro"): mais barato
-	// primeiro; em caso de empate no preço, o itinerário com menos itens (menos
-	// baldeações entre motoristas) vem primeiro, por ser mais simples de
-	// executar na prática.
+	// Critério de ordenação: mais barato primeiro; em caso de empate no preço,
+	// o itinerário com menos itens (menos baldeações entre motoristas) vem primeiro.
 	sort.Slice(resultados, func(i, j int) bool {
 		if resultados[i].preco != resultados[j].preco {
 			return resultados[i].preco < resultados[j].preco

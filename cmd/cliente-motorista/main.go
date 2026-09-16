@@ -10,18 +10,19 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
 	"vaijunto/internal/protocolo"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("uso: cliente-motorista <host:porta>")
+		fmt.Println("Uso: cliente-motorista <host:porta>")
 		return
 	}
 
 	conn, err := net.Dial("tcp", os.Args[1])
 	if err != nil {
-		fmt.Println("erro ao conectar:", err)
+		fmt.Println("Erro ao conectar:", err)
 		return
 	}
 	defer conn.Close()
@@ -37,7 +38,7 @@ func main() {
 
 		respLinha, err := leitorServidor.ReadString('\n')
 		if err != nil {
-			fmt.Println("conexao com o servidor caiu:", err)
+			fmt.Println("Conexao com o servidor caiu:", err)
 			os.Exit(1)
 		}
 		var resp protocolo.Resposta
@@ -45,22 +46,32 @@ func main() {
 		return resp
 	}
 
-	fmt.Print("seu nome: ")
-	nome, _ := leitorTeclado.ReadString('\n')
-	nome = strings.TrimSpace(nome)
-
-	resp := enviar(protocolo.Login, protocolo.LoginReq{Nome: nome})
-	if !resp.Ok {
-		fmt.Println("erro no login:", resp.Erro)
-		return
-	}
-	fmt.Println("login efetuado como", nome)
-
+	
 	for {
-		fmt.Println("\n1) publicar carona  2) listar caronas  3) consultar passageiros  4) cancelar carona  0) sair")
-		fmt.Print("> ")
-		opcao, _ := leitorTeclado.ReadString('\n')
-		switch strings.TrimSpace(opcao) {
+		nome := lerLinha(leitorTeclado, "Nome: ")
+		senha := lerLinha(leitorTeclado, "Senha: ")
+
+		resp := enviar(protocolo.Login, protocolo.LoginReq{Nome: nome, Senha: senha})
+		if !resp.Ok {
+			fmt.Println("Erro no login:", resp.Erro)
+			continue
+		}
+		fmt.Println("Login efetuado como", nome)
+
+		menuMotorista(leitorTeclado, enviar)
+		fmt.Println("\n(Sessao encerrada — para fechar o programa de vez, use Ctrl+C)")
+	}
+}
+
+func menuMotorista(leitorTeclado *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
+	for {
+		fmt.Println("\n[1] Publicar carona " +
+			"\n[2] Listar caronas" +
+			"\n[3] Consultar passageiros " +
+			"\n[4] Cancelar carona" +
+			"\n[0] Voltar ao menu inicial")
+		opcao := lerLinha(leitorTeclado, "> ")
+		switch opcao {
 		case "1":
 			publicarCarona(leitorTeclado, enviar)
 		case "2":
@@ -72,19 +83,24 @@ func main() {
 		case "0":
 			return
 		default:
-			fmt.Println("opcao invalida")
+			fmt.Println("Opcao invalida!\nTente novamente.")
 		}
 	}
 }
 
 func lerLinha(leitor *bufio.Reader, prompt string) string {
 	fmt.Print(prompt)
-	linha, _ := leitor.ReadString('\n')
+	linha, err := leitor.ReadString('\n')
+	if err != nil {
+		fmt.Println("\nEntrada encerrada, fechando o cliente.")
+		os.Exit(0)
+	}
 	return strings.TrimSpace(linha)
 }
 
 func publicarCarona(leitor *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
-	rotaTexto := lerLinha(leitor, "rota (cidades separadas por virgula, em ordem, ex: Salvador,Vitoria da Conquista): ")
+	rotaTexto := lerLinha(leitor, "Rota:\nOBS.: Escreva as cidades separadas por virgula, "+
+		"em ordem. Ex: Salvador, Vitoria da Conquista): ")
 	partes := strings.Split(rotaTexto, ",")
 	rota := make([]string, 0, len(partes))
 	for _, p := range partes {
@@ -94,75 +110,75 @@ func publicarCarona(leitor *bufio.Reader, enviar func(string, interface{}) proto
 		}
 	}
 	if len(rota) < 2 {
-		fmt.Println("rota precisa de pelo menos duas cidades")
+		fmt.Println("A rota precisa de pelo menos duas cidades")
 		return
 	}
 	numTrechos := len(rota) - 1
 
-	data := lerLinha(leitor, "data (ex: 2026-09-20): ")
+	data := lerLinha(leitor, "Data (formato DD/MM/AAAA): ")
 
 	precos := make([]float64, numTrechos)
 	assentos := make([]int, numTrechos)
 	for i := 0; i < numTrechos; i++ {
-		fmt.Printf("trecho %d: %s -> %s\n", i, rota[i], rota[i+1])
-		precos[i], _ = strconv.ParseFloat(lerLinha(leitor, "  preco: "), 64)
-		assentos[i], _ = strconv.Atoi(lerLinha(leitor, "  assentos: "))
+		fmt.Printf("Trecho %d: %s -> %s\n", i, rota[i], rota[i+1])
+		precos[i], _ = strconv.ParseFloat(lerLinha(leitor, "Valor: "), 64)
+		assentos[i], _ = strconv.Atoi(lerLinha(leitor, "Quantidade de assentos: "))
 	}
 
 	resp := enviar(protocolo.PublicarCarona, protocolo.PublicarCaronaReq{
 		Rota: rota, Data: data, PrecoPorTrecho: precos, AssentosPorTrecho: assentos,
 	})
 	if !resp.Ok {
-		fmt.Println("erro:", resp.Erro)
+		fmt.Println("Erro:", resp.Erro)
 		return
 	}
 	var dados protocolo.PublicarCaronaResp
 	json.Unmarshal(resp.Dados, &dados)
-	fmt.Println("carona publicada, id:", dados.CaronaID)
+	fmt.Println("Carona publicada. ID: ", dados.CaronaID)
 }
 
 func listarCaronas(enviar func(string, interface{}) protocolo.Resposta) {
 	resp := enviar(protocolo.ListarCaronas, struct{}{})
 	if !resp.Ok {
-		fmt.Println("erro:", resp.Erro)
+		fmt.Println("Erro:", resp.Erro)
 		return
 	}
 	var dados protocolo.ListarCaronasResp
 	json.Unmarshal(resp.Dados, &dados)
 	if len(dados.Caronas) == 0 {
-		fmt.Println("nenhuma carona publicada ainda")
+		fmt.Println("Nenhuma carona publicada aind.a")
 		return
 	}
 	for _, c := range dados.Caronas {
-		fmt.Printf("id=%s motorista=%s rota=%v data=%s assentos_livres=%v preco_por_trecho=%v\n",
+		fmt.Printf("\nID: %s\nMotorista: %s\nRota: %v\nData: %s\nAssentos livres: %v\nPreco por trecho: %v\n",
 			c.ID, c.Motorista, c.Rota, c.Data, c.AssentosLivres, c.PrecoPorTrecho)
 	}
 }
 
 func consultarPassageiros(leitor *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
-	id := lerLinha(leitor, "id da carona: ")
+	id := lerLinha(leitor, "ID da carona: ")
 	resp := enviar(protocolo.ConsultarPassageiros, protocolo.ConsultarPassageirosReq{CaronaID: id})
 	if !resp.Ok {
-		fmt.Println("erro:", resp.Erro)
+		fmt.Println("Erro:", resp.Erro)
 		return
 	}
 	var dados protocolo.ConsultarPassageirosResp
 	json.Unmarshal(resp.Dados, &dados)
 	if len(dados.Passageiros) == 0 {
-		fmt.Println("nenhum passageiro nesta carona ainda")
+		fmt.Println("Nenhum passageiro nesta carona ainda.")
 		return
 	}
 	for _, p := range dados.Passageiros {
-		fmt.Printf("passageiro=%s do trecho %d ao %d\n", p.Passageiro, p.TrechoInicio, p.TrechoFim)
+		fmt.Printf("Passageiro %s do trecho %d ao %d\n", p.Passageiro, p.TrechoInicio, p.TrechoFim)
 	}
 }
 
 func cancelarCarona(leitor *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
-	id := lerLinha(leitor, "id da carona: ")
+	id := lerLinha(leitor, "ID da carona: ")
 	resp := enviar(protocolo.CancelarCarona, protocolo.CancelarCaronaReq{CaronaID: id})
 	if !resp.Ok {
-		fmt.Println("erro:", resp.Erro)
+		fmt.Println("Erro:", resp.Erro)
 		return
 	}
-	fmt.Println("carona cancelada")
+	fmt.Println("Carona cancelada")
 }

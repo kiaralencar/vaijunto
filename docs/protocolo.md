@@ -85,23 +85,24 @@ Toda resposta (servidor → cliente):
 | `LOGIN` | motorista e passageiro | — |
 | `PUBLICAR_CARONA` | motorista | sim |
 | `LISTAR_CARONAS` | motorista e passageiro | não |
-| `CONSULTAR_PASSAGEIROS` | motorista | não* |
+| `CONSULTAR_PASSAGEIROS` | motorista | sim, e só o dono da carona |
 | `CANCELAR_CARONA` | motorista | sim |
 | `BUSCAR_ITINERARIOS` | passageiro | não |
 | `RESERVAR` | passageiro | sim |
 | `LISTAR_MINHAS_RESERVAS` | passageiro | sim |
 | `CANCELAR_RESERVA` | passageiro | sim |
 
-*(`CONSULTAR_PASSAGEIROS` não valida hoje que quem pergunta é o dono da
-carona — ver seção "Pendências e perguntas ao tutor" no guia de estudo.)*
-
 ### `LOGIN`
 
-Pedido `dados`: `{"nome": "Maria"}`
+Pedido `dados`: `{"nome": "Maria", "senha": "qualquercoisa"}`
 Resposta `dados`: `{}`
 
-Efeito: associa o nome informado a esta conexão (sessão). Sem senha nesta
-versão — decisão a confirmar com o tutor.
+Efeito: associa o nome informado a esta conexão (sessão). A senha não é um
+sistema de conta completo (sem hashing, sem persistência) — serve só para
+evitar que dois clientes diferentes colidam usando o mesmo nome sem querer:
+quem usa um nome pela primeira vez "registra" a senha para ele (em memória);
+logins seguintes com o mesmo nome precisam vir com a mesma senha, senão são
+recusados.
 
 ### `PUBLICAR_CARONA`
 
@@ -109,7 +110,7 @@ Pedido `dados`:
 ```json
 {
   "rota": ["Salvador", "Vitoria da Conquista"],
-  "data": "2026-09-20",
+  "data": "20/09/2026",
   "preco_por_trecho": [50],
   "assentos_por_trecho": [2]
 }
@@ -118,6 +119,11 @@ Resposta `dados`: `{"carona_id": "c1"}`
 
 Regra: `preco_por_trecho` e `assentos_por_trecho` têm exatamente um valor por
 trecho, isto é, `len(rota) - 1` valores.
+
+Convenção de data: `DD/MM/AAAA` (ex.: `"20/09/2026"`). O campo `data` é
+tratado como texto — o servidor só faz comparação exata (`BUSCAR_ITINERARIOS`)
+e conversão para ordenar `LISTAR_CARONAS` por data mais próxima; ele **não**
+valida se a data é real (ex.: "31/02/2026" seria aceito sem erro).
 
 ### `LISTAR_CARONAS`
 
@@ -129,7 +135,7 @@ Resposta `dados`:
     {
       "id": "c1", "motorista": "Joao",
       "rota": ["Salvador", "Vitoria da Conquista"],
-      "data": "2026-09-20",
+      "data": "20/09/2026",
       "preco_por_trecho": [50],
       "assentos_livres": [2]
     }
@@ -145,24 +151,49 @@ Resposta `dados`:
 {"passageiros": [{"passageiro": "Maria", "trecho_inicio": 0, "trecho_fim": 0}]}
 ```
 
+Exige login, e **só o motorista dono da carona** pode consultar — outro
+motorista pedindo o mesmo `carona_id` recebe erro ("carona pertence a outro
+motorista"), mesmo estando autenticado.
+
 ### `CANCELAR_CARONA`
 
 Pedido `dados`: `{"carona_id": "c1"}`
 Resposta `dados`: `{}`
 
-Só o motorista dono da carona pode cancelar.
+Só o motorista dono da carona pode cancelar. Cancelar uma carona também
+invalida (marca inativa) qualquer reserva que dependesse dela — inclusive
+reservas de itinerário combinado com outra carona ainda ativa, já que o
+itinerário como um todo deixa de poder ser cumprido. Os assentos que essa
+reserva ocupava em outras caronas (as que continuam ativas) voltam a ficar
+livres para outros passageiros.
 
 ### `BUSCAR_ITINERARIOS`
 
-Pedido `dados`: `{"origem": "Salvador", "destino": "Vitoria da Conquista", "data": "2026-09-20"}`
+Pedido `dados`: `{"origem": "Salvador", "destino": "Vitoria da Conquista", "data": "20/09/2026"}`
 Resposta `dados`:
 ```json
 {
   "itinerarios": [
-    {"itens": [{"carona_id": "c1", "trecho_inicio": 0, "trecho_fim": 0}], "preco": 50}
+    {
+      "itens": [{
+        "carona_id": "c1", "trecho_inicio": 0, "trecho_fim": 0,
+        "origem": "Salvador", "destino": "Vitoria da Conquista", "preco": 50
+      }],
+      "preco": 50
+    }
   ]
 }
 ```
+`origem`, `destino` e `preco` dentro de cada item são só para exibição
+(o servidor busca o nome das cidades na carona correspondente) — o cliente
+não precisa preenchê-los para reservar, só repassar o item inteiro de volta
+num `RESERVAR`.
+
+**Atenção — comparação de cidade e data é texto exato**: `"Salvador"` e
+`"salvador"` são valores diferentes (maiúscula importa), assim como
+`"Vitoria da Conquista"` e `"Vitória da Conquista"` (acento importa). O
+mesmo vale para a data. Não há normalização hoje — é preciso digitar
+exatamente igual ao que foi usado em `PUBLICAR_CARONA`.
 
 Como é feito: o servidor monta um **grafo** a partir das caronas ativas
 naquela data — cada **cidade** é um nó, cada **trecho com assento livre** é
@@ -200,8 +231,18 @@ manual quanto por uma reserva feita a partir de um resultado do
 Pedido `dados`: `{}`
 Resposta `dados`:
 ```json
-{"reservas": [{"id": "r1", "itens": [{"carona_id": "c1", "trecho_inicio": 0, "trecho_fim": 0}]}]}
+{
+  "reservas": [{
+    "id": "r1",
+    "itens": [{
+      "carona_id": "c1", "trecho_inicio": 0, "trecho_fim": 0,
+      "origem": "Salvador", "destino": "Vitoria da Conquista", "preco": 50
+    }]
+  }]
+}
 ```
+Assim como em `BUSCAR_ITINERARIOS`, `origem`/`destino`/`preco` são
+preenchidos pelo servidor só para exibição.
 
 ### `CANCELAR_RESERVA`
 
@@ -220,7 +261,7 @@ servidor -> cliente-motorista:
 {"tipo":"LOGIN","ok":true,"dados":{}}
 
 cliente-motorista -> servidor:
-{"tipo":"PUBLICAR_CARONA","dados":{"rota":["Salvador","Vitoria da Conquista"],"data":"2026-09-20","preco_por_trecho":[50],"assentos_por_trecho":[2]}}
+{"tipo":"PUBLICAR_CARONA","dados":{"rota":["Salvador","Vitoria da Conquista"],"data":"20/09/2026","preco_por_trecho":[50],"assentos_por_trecho":[2]}}
 
 servidor -> cliente-motorista:
 {"tipo":"PUBLICAR_CARONA","ok":true,"dados":{"carona_id":"c1"}}

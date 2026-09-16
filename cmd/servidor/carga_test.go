@@ -84,7 +84,7 @@ func TestReservaConcorrenteNaoVendeAssentoDuasVezes(t *testing.T) {
 
 	respPublica := motorista.enviar(protocolo.PublicarCarona, protocolo.PublicarCaronaReq{
 		Rota:              []string{"A", "B"},
-		Data:              "2026-09-20",
+		Data:              "20/09/2026",
 		PrecoPorTrecho:    []float64{10},
 		AssentosPorTrecho: []int{capacidade},
 	})
@@ -135,13 +135,7 @@ func TestReservaConcorrenteNaoVendeAssentoDuasVezes(t *testing.T) {
 
 	// Confere que o número de passageiros confirmados bate com a
 	// capacidade, ou seja, nenhum assento foi vendido duas vezes.
-	auditor, err := conectaClienteTeste(endereco, "auditor")
-	if err != nil {
-		t.Fatalf("erro ao conectar auditor: %v", err)
-	}
-	defer auditor.conn.Close()
-
-	respConsulta := auditor.enviar(protocolo.ConsultarPassageiros, protocolo.ConsultarPassageirosReq{CaronaID: caronaID})
+	respConsulta := motorista.enviar(protocolo.ConsultarPassageiros, protocolo.ConsultarPassageirosReq{CaronaID: caronaID})
 	var dadosConsulta protocolo.ConsultarPassageirosResp
 	json.Unmarshal(respConsulta.Dados, &dadosConsulta)
 	if len(dadosConsulta.Passageiros) != capacidade {
@@ -161,14 +155,14 @@ func TestReservaMultiCaronaEAtomica(t *testing.T) {
 	defer motorista.conn.Close()
 
 	respC1 := motorista.enviar(protocolo.PublicarCarona, protocolo.PublicarCaronaReq{
-		Rota: []string{"A", "B"}, Data: "2026-09-20",
+		Rota: []string{"A", "B"}, Data: "20/09/2026",
 		PrecoPorTrecho: []float64{10}, AssentosPorTrecho: []int{1},
 	})
 	var c1 protocolo.PublicarCaronaResp
 	json.Unmarshal(respC1.Dados, &c1)
 
 	respC2 := motorista.enviar(protocolo.PublicarCarona, protocolo.PublicarCaronaReq{
-		Rota: []string{"B", "C"}, Data: "2026-09-20",
+		Rota: []string{"B", "C"}, Data: "20/09/2026",
 		PrecoPorTrecho: []float64{10}, AssentosPorTrecho: []int{0}, // sem assento, de proposito
 	})
 	var c2 protocolo.PublicarCaronaResp

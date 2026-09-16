@@ -17,3 +17,30 @@ INTERNET ENGINEERING TASK FORCE. RFC 8259: The JavaScript Object Notation (JSON)
 REDIS. Redis serialization protocol specification (RESP). Disponível em: https://redis.io/docs/latest/develop/reference/protocol-spec/. Acesso em 13 set. 2026.
 
 JSON LINES. JSON Lines. Disponível em: https://jsonlines.org/. Acesso em 13 set. 2026.
+
+
+Lembretes para colocar no relatorio:
+// reservarManual deixa o passageiro adicionar quantos itens quiser antes de
+// confirmar — inclusive itens de caronas diferentes escolhidas por ele
+// mesmo, sem passar pela busca. Não é uma operação exigida separadamente
+// pelo enunciado (o requisito é "confirmar reserva de um itinerário", que a
+// busca já cobre) — é um atalho de teste/flexibilidade que ficou do
+// desenvolvimento inicial, antes da busca existir.
+
+
+
+// tempoLimiteInatividade é o timeout de leitura do socket: se um cliente
+// conectar e ficar essa quantidade de tempo sem mandar NENHUMA mensagem, a
+// conexão é encerrada pelo servidor. Sem isso, um cliente travado (ou uma
+// conexão "meio aberta" que nunca fecha de verdade) prenderia a goroutine
+// dele para sempre. 10 minutos é generoso o bastante para não atrapalhar um
+// uso interativo normal (alguém digitando devagar no menu).
+
+
+
+quem
+// usa um nome PELA PRIMEIRA VEZ "registra" a senha dele (só em memória, some
+// se o servidor reiniciar — igual a todo o resto do estado). Depois disso,
+// qualquer login com aquele mesmo nome precisa vir com a MESMA senha. Não é
+// um sistema de conta de verdade (sem hashing, sem persistência) — só o
+// suficiente para dois clientes não colidirem usando o mesmo nome sem querer.
