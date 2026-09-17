@@ -1,46 +1,21 @@
-SOBRENOME, Nome. Título. Fonte, ano. Disponível em: link. Acesso em dd mmm. aaaa.
+CORMEN, Thomas H. et al. Introduction to Algorithms. 3. ed. Cambridge: The MIT Press, 2009.
 
-TSOUKALOS, Mihalis. Create a TCP and UDP Client and Server using Go. Akamai Cloud, 2019. Disponível em: https://www.akamai.com/cloud/guides/developing-udp-and-tcp-clients-and-servers-in-go/. Acesso em 31 ago. 2026.
+DOCKER INC. Compose file reference. Disponível em: https://docs.docker.com/compose/compose-file/. Acesso em: 15 set. 2026.
 
-THE GO AUTHORS. Package net. Disponível em: https://pkg.go.dev/net. Acesso em 31 ago. 2026.
-
-THE GO AUTHORS. Package encoding/json. Disponível em: https://pkg.go.dev/encoding/json. Acesso em 13 set. 2026.
-
-THE GO AUTHORS. Package sync. Disponível em: https://pkg.go.dev/sync. Acesso em 13 set. 2026.
-
-THE GO AUTHORS. The Go Memory Model. Disponível em: https://go.dev/ref/mem. Acesso em 13 set. 2026.
-
-INTERNET ENGINEERING TASK FORCE. RFC 9293: Transmission Control Protocol (TCP). 2022. Disponível em: https://www.rfc-editor.org/rfc/rfc9293. Acesso em 13 set. 2026.
+DOCKER INC. Multi-stage builds. Disponível em: https://docs.docker.com/build/building/multi-stage/. Acesso em: 15 set. 2026.
 
 INTERNET ENGINEERING TASK FORCE. RFC 8259: The JavaScript Object Notation (JSON) Data Interchange Format. 2017. Disponível em: https://www.rfc-editor.org/rfc/rfc8259. Acesso em 13 set. 2026.
 
-REDIS. Redis serialization protocol specification (RESP). Disponível em: https://redis.io/docs/latest/develop/reference/protocol-spec/. Acesso em 13 set. 2026.
+INTERNET ENGINEERING TASK FORCE. RFC 9293: Transmission Control Protocol (TCP). 2022. Disponível em: https://www.rfc-editor.org/rfc/rfc9293. Acesso em 13 set. 2026.
 
-JSON LINES. JSON Lines. Disponível em: https://jsonlines.org/. Acesso em 13 set. 2026.
+JSON LINES. JSON Lines. Disponível em: https://jsonlines.org/. Acesso em 07 set. 2026.
 
+KUROSE, James F.; ROSS, Keith W. Computer Networking: A Top-Down Approach. 7. ed. Boston: Pearson, 2017.
 
-Lembretes para colocar no relatorio:
-// reservarManual deixa o passageiro adicionar quantos itens quiser antes de
-// confirmar — inclusive itens de caronas diferentes escolhidas por ele
-// mesmo, sem passar pela busca. Não é uma operação exigida separadamente
-// pelo enunciado (o requisito é "confirmar reserva de um itinerário", que a
-// busca já cobre) — é um atalho de teste/flexibilidade que ficou do
-// desenvolvimento inicial, antes da busca existir.
+REDIS. Redis serialization protocol specification (RESP). Disponível em: https://redis.io/docs/latest/develop/reference/protocol-spec/. Acesso em 15 set. 2026.
 
+THE GO AUTHORS. Documentação oficial da linguagem Go. Disponível em: https://go.dev/doc/. Acesso em: 25 ago. 2026.
 
+THE GO AUTHORS. The Go Memory Model. Disponível em: https://go.dev/ref/mem. Acesso em 07 set. 2026.
 
-// tempoLimiteInatividade é o timeout de leitura do socket: se um cliente
-// conectar e ficar essa quantidade de tempo sem mandar NENHUMA mensagem, a
-// conexão é encerrada pelo servidor. Sem isso, um cliente travado (ou uma
-// conexão "meio aberta" que nunca fecha de verdade) prenderia a goroutine
-// dele para sempre. 10 minutos é generoso o bastante para não atrapalhar um
-// uso interativo normal (alguém digitando devagar no menu).
-
-
-
-quem
-// usa um nome PELA PRIMEIRA VEZ "registra" a senha dele (só em memória, some
-// se o servidor reiniciar — igual a todo o resto do estado). Depois disso,
-// qualquer login com aquele mesmo nome precisa vir com a MESMA senha. Não é
-// um sistema de conta de verdade (sem hashing, sem persistência) — só o
-// suficiente para dois clientes não colidirem usando o mesmo nome sem querer.
+TSOUKALOS, Mihalis. Create a TCP and UDP Client and Server using Go. Akamai Cloud, 2019. Disponível em: https://www.akamai.com/cloud/guides/developing-udp-and-tcp-clients-and-servers-in-go/. Acesso em: 27 ago. 2026.

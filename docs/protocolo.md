@@ -16,17 +16,16 @@ seguir a letra do enunciado:
   (entrega confiável, ordenada, sem duplicação). Com UDP, um datagrama pode
   chegar fora de ordem, duplicado ou simplesmente nunca chegar, e cabe à
   aplicação detectar e corrigir isso.
-- **Reimplementar isso por conta própria seria retrabalho sem benefício.**
-  Se usássemos UDP, teríamos que inventar nosso próprio esquema de
-  confirmação (ACK), retransmissão e reordenação — exatamente o que o TCP já
-  resolve na camada de transporte. Para um protocolo de requisição-resposta
-  como o nosso (pedido → resposta, sequencial, na mesma conexão), isso não
-  traria vantagem nenhuma, só complexidade.
+- **Reimplementar isso seria retrabalho sem benefício.** Usar UDP exigiria
+  um esquema próprio de confirmação (ACK), retransmissão e reordenação —
+  exatamente o que o TCP já resolve na camada de transporte. Para um
+  protocolo de requisição-resposta como este (pedido → resposta, sequencial,
+  na mesma conexão), isso não traria vantagem nenhuma, só complexidade.
 - **UDP se justificaria** em cenários com tolerância a perda e sensibilidade a
   atraso (streaming de vídeo, jogos em tempo real) — não é o caso de reservar
   assento, onde perder uma mensagem silenciosamente seria um bug grave, não
   um detalhe aceitável.
-- **Conexão persistente também ajuda no nosso modelo**: como cada cliente
+- **Conexão persistente também ajuda neste modelo**: como cada cliente
   mantém uma conexão TCP aberta durante toda a sessão (múltiplas operações,
   uma mesma conexão), o custo de estabelecer a conexão (handshake do TCP)
   acontece uma vez só, no login — não a cada operação.
@@ -281,12 +280,12 @@ servidor -> cliente-passageiro:
 
 ## Concorrência (resumo — detalhes no relatório)
 
-Todo o estado (caronas, reservas) vive atrás de **um único `sync.Mutex`**.
-Cada goroutine (uma por conexão de cliente) só mexe no estado dentro de
-`Lock()`/`Unlock()`. Um lock único evita a necessidade de ordenar múltiplos
-locks (o que geraria risco de deadlock quando uma reserva mexe em várias
-caronas ao mesmo tempo), ao custo de menos paralelismo interno — trade-off
-medido pelo teste de carga (`docs/` ou `cmd/servidor/*_test.go`).
+Todo o estado (caronas, reservas, senhas) vive atrás de **um único
+`sync.Mutex`**. Cada goroutine (uma por conexão de cliente) só mexe no
+estado dentro de `Lock()`/`Unlock()`. Um lock único evita a necessidade de
+ordenar múltiplos locks (o que geraria risco de deadlock quando uma reserva
+mexe em várias caronas ao mesmo tempo), ao custo de menos paralelismo
+interno — trade-off medido pelo teste de carga (`cmd/servidor/carga_test.go`).
 
 ## Confiabilidade
 
@@ -297,7 +296,7 @@ aquela goroutine**. O estado do servidor e as demais conexões continuam
 intactos.
 
 **Timeout de socket**: cada leitura tem um prazo (`conn.SetReadDeadline`,
-reiniciado a cada mensagem recebida) de 5 minutos de inatividade. Se um
+reiniciado a cada mensagem recebida) de 10 minutos de inatividade. Se um
 cliente conectar e nunca mandar nada (ou parar de responder no meio de uma
 sessão), a conexão é fechada pelo servidor depois desse prazo, liberando a
 goroutine em vez de mantê-la presa para sempre.

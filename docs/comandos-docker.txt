@@ -1,6 +1,15 @@
 COMANDOS DOCKER — Conteúdo gerado por IA para me auxiliar na apresentação
 =========================================================================
 
+ANTES DE TUDO — TESTE AUTOMATIZADO (qualquer maquina, nao precisa Docker)
+------------------------------------------------
+cd vaijunto
+go test ./... -v
+
+# com detector de corrida (exige compilador C)
+go test ./... -race -v
+
+
 Regra de ouro: toda vez que o codigo mudar desde a ultima vez que voce
 buildou, e preciso rodar "docker build" de novo daquela imagem especifica
 ANTES de rodar "docker run". Rebuildar uma imagem nao rebuilda as outras —
