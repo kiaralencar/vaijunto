@@ -22,16 +22,17 @@ func main() {
 		return
 	}
 
-	conn, err := net.Dial("tcp", os.Args[1])
+	conn, err := net.Dial("tcp", os.Args[1]) // Única chamada que já disca e conecta
 	if err != nil {
 		fmt.Println("Erro ao conectar:", err)
 		return
 	}
 	defer conn.Close()
 
-	leitorServidor := bufio.NewReader(conn)
-	leitorTeclado := bufio.NewReader(os.Stdin)
+	leitorServidor := bufio.NewReader(conn) // Lê da rede
+	leitorTeclado := bufio.NewReader(os.Stdin) // Lê do teclado
 
+	// Envia um pedido ao servidor e espera a resposta.
 	enviar := func(tipo string, dados interface{}) protocolo.Resposta {
 		corpo, err := json.Marshal(dados)
 		if err != nil {
@@ -62,7 +63,7 @@ func main() {
 		return resp
 	}
 
-	
+	// Loop principal: pede login, e depois entra no menu de motorista.
 	for {
 		nome := lerLinha(leitorTeclado, "Nome: ")
 		senha := lerLinha(leitorTeclado, "Senha: ")
@@ -79,6 +80,7 @@ func main() {
 	}
 }
 
+// Exibe as opções para o motorista, e chama a função correspondente à opção escolhida.
 func menuMotorista(leitorTeclado *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
 	for {
 		fmt.Println("\n[1] Publicar carona " +
@@ -104,6 +106,7 @@ func menuMotorista(leitorTeclado *bufio.Reader, enviar func(string, interface{})
 	}
 }
 
+// lerLinha lê uma linha do teclado, mostrando o prompt. Se o usuário encerrar a entrada (Ctrl+C), o programa termina.
 func lerLinha(leitor *bufio.Reader, prompt string) string {
 	fmt.Print(prompt)
 	linha, err := leitor.ReadString('\n')
@@ -152,7 +155,7 @@ func lerInteiro(leitor *bufio.Reader, prompt string) int {
 	}
 }
 
-// decodificar tenta decodificar os dados que vieram na resposta do servidor
+// Tenta decodificar os dados que vieram na resposta do servidor
 // na struct esperada. Se a resposta vier corrompida ou num formato
 // inesperado, avisa e devolve false em vez de seguir com dados incompletos.
 func decodificar(dados []byte, v interface{}) bool {
@@ -163,10 +166,11 @@ func decodificar(dados []byte, v interface{}) bool {
 	return true
 }
 
+// Permite ao motorista publicar uma nova carona.
 func publicarCarona(leitor *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
 	rotaTexto := lerLinha(leitor, "Rota:\nOBS.: Escreva as cidades separadas por virgula, "+
 		"em ordem. Ex: Salvador, Vitoria da Conquista): ")
-	partes := strings.Split(rotaTexto, ",")
+	partes := strings.Split(rotaTexto, ",") // Separa a rota em partes por virgula
 	rota := make([]string, 0, len(partes))
 	for _, p := range partes {
 		p = strings.TrimSpace(p)
@@ -174,7 +178,7 @@ func publicarCarona(leitor *bufio.Reader, enviar func(string, interface{}) proto
 			rota = append(rota, p)
 		}
 	}
-	if len(rota) < 2 {
+	if len(rota) < 2 { // Pelo menos duas cidades são necessárias para formar uma rota
 		fmt.Println("A rota precisa de pelo menos duas cidades")
 		return
 	}
@@ -190,6 +194,7 @@ func publicarCarona(leitor *bufio.Reader, enviar func(string, interface{}) proto
 		assentos[i] = lerInteiro(leitor, "Quantidade de assentos: ")
 	}
 
+	// Envia o pedido de publicar carona para o servidor
 	resp := enviar(protocolo.PublicarCarona, protocolo.PublicarCaronaReq{
 		Rota: rota, Data: data, PrecoPorTrecho: precos, AssentosPorTrecho: assentos,
 	})
@@ -204,6 +209,7 @@ func publicarCarona(leitor *bufio.Reader, enviar func(string, interface{}) proto
 	fmt.Println("Carona publicada. ID:", dados.CaronaID)
 }
 
+// Exibe a lista de caronas publicadas no servidor.
 func listarCaronas(enviar func(string, interface{}) protocolo.Resposta) {
 	resp := enviar(protocolo.ListarCaronas, struct{}{})
 	if !resp.Ok {
@@ -224,6 +230,7 @@ func listarCaronas(enviar func(string, interface{}) protocolo.Resposta) {
 	}
 }
 
+// Permite ao motorista consultar a lista de passageiros de uma carona.
 func consultarPassageiros(leitor *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
 	id := lerLinha(leitor, "ID da carona: ")
 	resp := enviar(protocolo.ConsultarPassageiros, protocolo.ConsultarPassageirosReq{CaronaID: id})
@@ -244,6 +251,7 @@ func consultarPassageiros(leitor *bufio.Reader, enviar func(string, interface{})
 	}
 }
 
+// Permite ao motorista cancelar uma carona publicada.
 func cancelarCarona(leitor *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
 	id := lerLinha(leitor, "ID da carona: ")
 	resp := enviar(protocolo.CancelarCarona, protocolo.CancelarCaronaReq{CaronaID: id})

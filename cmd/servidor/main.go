@@ -15,13 +15,13 @@ import (
 const tempoLimiteInatividade = 10 * time.Minute
 
 // Sessao guarda quem está logado nesta conexão específica. Cada goroutine
-// tem a sua, não é compartilhada (por isso não precisa de mutex).
+// tem a sua, ou seja, não é compartilhada, por isso não precisa de mutex
 type Sessao struct {
 	Nome string
 }
 
 func main() {
-	porta := "8080"
+	porta := "8080" // Porta padrão, caso não seja passada como argumento
 	if len(os.Args) > 1 {
 		porta = os.Args[1]
 	}
@@ -44,17 +44,20 @@ func main() {
 			fmt.Println("Erro ao aceitar conexao:", err)
 			continue
 		}
+
+		// Dispara a goroutine e volta imediatamente ao topo do for, pronto pra aceitar 
+		// o próximo cliente (permite atender várias pessoas ao mesmo tempo)
 		go atendeCliente(conn, estado)
 	}
 }
 
 // atendeCliente roda numa goroutine própria, uma por conexão. 
-func atendeCliente(conn net.Conn, estado *Estado) {
-	defer conn.Close()
+func atendeCliente(conn net.Conn, estado *Estado) { // O mesmo estado criado no main() é compartilhado entre todas as goroutines
+	defer conn.Close() // Fechar a conexao ao retornar (desconexao ou erro)
 	sessao := &Sessao{}
 	leitor := bufio.NewReader(conn)
 
-	fmt.Println("Nova conexao:", conn.RemoteAddr())
+	fmt.Println("Nova conexao:", conn.RemoteAddr()) // Exibição de log no servidor para saber quem conectou
 
 	for {
 		// Reseta o prazo a cada mensagem
@@ -67,7 +70,7 @@ func atendeCliente(conn net.Conn, estado *Estado) {
 			} else {
 				fmt.Println("Cliente", sessao.Nome, "desconectou:", conn.RemoteAddr())
 			}
-			return
+			return // Encerra só esta goroutine
 		}
 
 		resposta := processaLinha(linha, estado, sessao)

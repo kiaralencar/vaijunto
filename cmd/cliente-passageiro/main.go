@@ -21,16 +21,17 @@ func main() {
 		return
 	}
 
-	conn, err := net.Dial("tcp", os.Args[1])
+	conn, err := net.Dial("tcp", os.Args[1]) // Única chamada que já disca e conecta
 	if err != nil {
 		fmt.Println("Erro ao conectar:", err)
 		return
 	}
 	defer conn.Close()
 
-	leitorServidor := bufio.NewReader(conn)
-	leitorTeclado := bufio.NewReader(os.Stdin)
+	leitorServidor := bufio.NewReader(conn) // Lê da rede
+	leitorTeclado := bufio.NewReader(os.Stdin) // Lê do teclado
 
+	// Envia um pedido ao servidor e espera a resposta.
 	enviar := func(tipo string, dados interface{}) protocolo.Resposta {
 		corpo, err := json.Marshal(dados)
 		if err != nil {
@@ -61,6 +62,7 @@ func main() {
 		return resp
 	}
 
+	// Loop principal: pede login, e depois entra no menu do passageiro.
 	for {
 		nome := lerLinha(leitorTeclado, "\nNome: ")
 		senha := lerLinha(leitorTeclado, "Senha: ")
@@ -77,6 +79,7 @@ func main() {
 	}
 }
 
+// Exibe as opções para o passageiro, e chama a função correspondente à opção escolhida.
 func menuPassageiro(leitorTeclado *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
 	for {
 		fmt.Println("\n[1] Listar caronas" +
@@ -105,6 +108,7 @@ func menuPassageiro(leitorTeclado *bufio.Reader, enviar func(string, interface{}
 	}
 }
 
+// lerLinha lê uma linha do teclado, mostrando o prompt, e devolve a linha sem espaços
 func lerLinha(leitor *bufio.Reader, prompt string) string {
 	fmt.Print(prompt)
 	linha, err := leitor.ReadString('\n')
@@ -141,7 +145,7 @@ func lerInteiro(leitor *bufio.Reader, prompt string) int {
 	}
 }
 
-// decodificar tenta decodificar os dados que vieram na resposta do servidor
+// Tenta decodificar os dados que vieram na resposta do servidor
 // na struct esperada. Se a resposta vier corrompida ou num formato
 // inesperado, avisa e devolve false em vez de seguir com dados incompletos.
 func decodificar(dados []byte, v interface{}) bool {
@@ -152,6 +156,7 @@ func decodificar(dados []byte, v interface{}) bool {
 	return true
 }
 
+// Exibe a lista de caronas publicadas no servidor.
 func listarCaronas(enviar func(string, interface{}) protocolo.Resposta) {
 	resp := enviar(protocolo.ListarCaronas, struct{}{})
 	if !resp.Ok {
@@ -175,6 +180,7 @@ func listarCaronas(enviar func(string, interface{}) protocolo.Resposta) {
 	}
 }
 
+// Permite ao passageiro buscar itinerários e reservar um deles.
 func buscarEReservar(leitor *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
 	origem := lerLinha(leitor, "Origem: ")
 	destino := lerLinha(leitor, "Destino: ")
@@ -196,6 +202,7 @@ func buscarEReservar(leitor *bufio.Reader, enviar func(string, interface{}) prot
 		return
 	}
 
+	// Exibe os itinerários encontrados, com seus trechos e preços.
 	for i, it := range dados.Itinerarios {
 		fmt.Printf("[%d] Preco total = %.2f\n", i, it.Preco)
 		for _, item := range it.Itens {
@@ -204,6 +211,7 @@ func buscarEReservar(leitor *bufio.Reader, enviar func(string, interface{}) prot
 		}
 	}
 
+	// Passageiro escolhe um itinerário para reservar ou cancela a operação.
 	var idx int
 	for {
 		escolha := lerLinha(leitor, "Escolha o itinerario pelo numero (Enter para nao reservar): ")
@@ -221,7 +229,7 @@ func buscarEReservar(leitor *bufio.Reader, enviar func(string, interface{}) prot
 
 	respReserva := enviar(protocolo.Reservar, protocolo.ReservarReq{Itens: dados.Itinerarios[idx].Itens})
 	if !respReserva.Ok {
-		fmt.Println("Reserva recusada: ", respReserva.Erro)
+		fmt.Println("Reserva recusada: ", respReserva.Erro) // Erro em caso de carona cheia, trecho inválido, etc.
 		return
 	}
 	var reservaFeita protocolo.ReservarResp
@@ -231,6 +239,7 @@ func buscarEReservar(leitor *bufio.Reader, enviar func(string, interface{}) prot
 	fmt.Println("Reserva confirmada. ID:", reservaFeita.ReservaID)
 }
 
+// Permite ao passageiro reservar manualmente, informando o ID da carona e os trechos.
 func reservarManual(leitor *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
 	var itens []protocolo.ItemPedido
 	for {
@@ -238,6 +247,9 @@ func reservarManual(leitor *bufio.Reader, enviar func(string, interface{}) proto
 		if id == "" {
 			break
 		}
+
+		// O passageiro informa o trecho inicial e final que deseja reservar. 
+		// Se for apenas um trecho, o final é igual ao inicial
 		inicio := lerInteiro(leitor, "Trecho inicial: ")
 		fim := lerInteiro(leitor, "Trecho final (igual ao inicial se for apenas um trecho): ")
 		itens = append(itens, protocolo.ItemPedido{CaronaID: id, TrechoInicio: inicio, TrechoFim: fim})
@@ -249,7 +261,7 @@ func reservarManual(leitor *bufio.Reader, enviar func(string, interface{}) proto
 
 	resp := enviar(protocolo.Reservar, protocolo.ReservarReq{Itens: itens})
 	if !resp.Ok {
-		fmt.Println("Reserva recusada: ", resp.Erro)
+		fmt.Println("Reserva recusada: ", resp.Erro) // Erro em caso de carona cheia, trecho inválido, etc.
 		return
 	}
 	var dados protocolo.ReservarResp
@@ -259,6 +271,7 @@ func reservarManual(leitor *bufio.Reader, enviar func(string, interface{}) proto
 	fmt.Println("Reserva confirmada. ID:", dados.ReservaID)
 }
 
+// Permite ao passageiro listar suas reservas ativas.
 func listarMinhasReservas(enviar func(string, interface{}) protocolo.Resposta) {
 	resp := enviar(protocolo.ListarMinhasReservas, struct{}{})
 	if !resp.Ok {
@@ -282,6 +295,7 @@ func listarMinhasReservas(enviar func(string, interface{}) protocolo.Resposta) {
 	}
 }
 
+// Permite ao passageiro cancelar uma reserva.
 func cancelarReserva(leitor *bufio.Reader, enviar func(string, interface{}) protocolo.Resposta) {
 	id := lerLinha(leitor, "ID da reserva: ")
 	resp := enviar(protocolo.CancelarReserva, protocolo.CancelarReservaReq{ReservaID: id})

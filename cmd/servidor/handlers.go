@@ -39,10 +39,12 @@ func processaLinha(linha string, estado *Estado, sessao *Sessao) protocolo.Respo
 	}
 }
 
+// Monta uma resposta de erro para o pedido dado
 func erro(pedido protocolo.Pedido, msg string) protocolo.Resposta {
 	return protocolo.Resposta{Tipo: pedido.Tipo, ID: pedido.ID, Ok: false, Erro: msg}
 }
 
+// Monta uma resposta de sucesso para o pedido dado
 func ok(pedido protocolo.Pedido, dados interface{}) protocolo.Resposta {
 	b, err := json.Marshal(dados)
 	if err != nil {
@@ -59,6 +61,7 @@ func exigeLogin(pedido protocolo.Pedido, sessao *Sessao) (protocolo.Resposta, bo
 	return protocolo.Resposta{}, true
 }
 
+// Trata o pedido de login, criando a senha se for a primeira vez que o nome é usado.
 func trataLogin(pedido protocolo.Pedido, estado *Estado, sessao *Sessao) protocolo.Resposta {
 	var req protocolo.LoginReq
 	if err := json.Unmarshal(pedido.Dados, &req); err != nil || req.Nome == "" {
@@ -71,6 +74,7 @@ func trataLogin(pedido protocolo.Pedido, estado *Estado, sessao *Sessao) protoco
 	return ok(pedido, struct{}{})
 }
 
+// Trata o pedido de publicar uma nova carona, criando a carona no estado.
 func trataPublicarCarona(pedido protocolo.Pedido, estado *Estado, sessao *Sessao) protocolo.Resposta {
 	if resp, apto := exigeLogin(pedido, sessao); !apto {
 		return resp
@@ -91,6 +95,7 @@ func trataPublicarCarona(pedido protocolo.Pedido, estado *Estado, sessao *Sessao
 	return ok(pedido, protocolo.PublicarCaronaResp{CaronaID: c.ID})
 }
 
+// Trata o pedido de listar todas as caronas ativas, retornando um resumo de cada uma.
 func trataListarCaronas(pedido protocolo.Pedido, estado *Estado) protocolo.Resposta {
 	caronas := estado.ListarCaronas()
 	resumos := make([]protocolo.CaronaResumo, 0, len(caronas))
@@ -107,6 +112,7 @@ func trataListarCaronas(pedido protocolo.Pedido, estado *Estado) protocolo.Respo
 	return ok(pedido, protocolo.ListarCaronasResp{Caronas: resumos})
 }
 
+// Trata o pedido de cancelar uma carona, verificando se o motorista é o dono da carona
 func trataCancelarCarona(pedido protocolo.Pedido, estado *Estado, sessao *Sessao) protocolo.Resposta {
 	if resp, apto := exigeLogin(pedido, sessao); !apto {
 		return resp
@@ -121,6 +127,7 @@ func trataCancelarCarona(pedido protocolo.Pedido, estado *Estado, sessao *Sessao
 	return ok(pedido, struct{}{})
 }
 
+// Trata o pedido de consultar passageiros de uma carona, verificando se o motorista é o dono da carona
 func trataConsultarPassageiros(pedido protocolo.Pedido, estado *Estado, sessao *Sessao) protocolo.Resposta {
 	if resp, apto := exigeLogin(pedido, sessao); !apto {
 		return resp
@@ -144,6 +151,7 @@ func trataConsultarPassageiros(pedido protocolo.Pedido, estado *Estado, sessao *
 	return ok(pedido, protocolo.ConsultarPassageirosResp{Passageiros: lista})
 }
 
+// Trata o pedido de buscar itinerários, retornando uma lista de itinerários encontrados
 func trataBuscarItinerarios(pedido protocolo.Pedido, estado *Estado) protocolo.Resposta {
 	var req protocolo.BuscarItinerariosReq
 	if err := json.Unmarshal(pedido.Dados, &req); err != nil {
@@ -177,6 +185,7 @@ func trataBuscarItinerarios(pedido protocolo.Pedido, estado *Estado) protocolo.R
 	return ok(pedido, protocolo.BuscarItinerariosResp{Itinerarios: itinerarios})
 }
 
+// Trata o pedido de reservar uma carona, convertendo os itens e repassando para o estado
 func trataReservar(pedido protocolo.Pedido, estado *Estado, sessao *Sessao) protocolo.Resposta {
 	if resp, apto := exigeLogin(pedido, sessao); !apto {
 		return resp
@@ -202,6 +211,7 @@ func trataReservar(pedido protocolo.Pedido, estado *Estado, sessao *Sessao) prot
 	return ok(pedido, protocolo.ReservarResp{ReservaID: id})
 }
 
+// Trata o pedido de cancelar uma reserva, convertendo os dados e repassando para o estado
 func trataCancelarReserva(pedido protocolo.Pedido, estado *Estado, sessao *Sessao) protocolo.Resposta {
 	if resp, apto := exigeLogin(pedido, sessao); !apto {
 		return resp
@@ -216,6 +226,7 @@ func trataCancelarReserva(pedido protocolo.Pedido, estado *Estado, sessao *Sessa
 	return ok(pedido, struct{}{})
 }
 
+// Trata o pedido de listar todas as reservas ativas do passageiro, retornando um resumo de cada uma.
 func trataListarMinhasReservas(pedido protocolo.Pedido, estado *Estado, sessao *Sessao) protocolo.Resposta {
 	if resp, apto := exigeLogin(pedido, sessao); !apto {
 		return resp

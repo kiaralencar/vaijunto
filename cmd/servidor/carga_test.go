@@ -20,6 +20,7 @@ type clienteTeste struct {
 	leitor *bufio.Reader
 }
 
+// Versão simplificada do que os clientes de verdade fazem
 func (c *clienteTeste) enviar(tipo string, dados interface{}) protocolo.Resposta {
 	corpo, _ := json.Marshal(dados)
 	pedido := protocolo.Pedido{Tipo: tipo, Dados: corpo}
@@ -35,6 +36,7 @@ func (c *clienteTeste) enviar(tipo string, dados interface{}) protocolo.Resposta
 	return resp
 }
 
+// Atalho para nao repetir essas operações em todo teste (conexao e login)
 func conectaClienteTeste(endereco, nome string) (*clienteTeste, error) {
 	conn, err := net.Dial("tcp", endereco)
 	if err != nil {
@@ -48,6 +50,7 @@ func conectaClienteTeste(endereco, nome string) (*clienteTeste, error) {
 	return c, nil
 }
 
+// Inicia o servidor em uma porta aleatória e retorna o endereço e o estado.
 func iniciaServidorTeste(t *testing.T) (string, *Estado) {
 	t.Helper()
 	l, err := net.Listen("tcp", "127.0.0.1:0")
@@ -70,6 +73,7 @@ func iniciaServidorTeste(t *testing.T) (string, *Estado) {
 	return l.Addr().String(), estado
 }
 
+// Simula 60 clientes tentando reservar
 func TestReservaConcorrenteNaoVendeAssentoDuasVezes(t *testing.T) {
 	endereco, _ := iniciaServidorTeste(t)
 
@@ -145,6 +149,8 @@ func TestReservaConcorrenteNaoVendeAssentoDuasVezes(t *testing.T) {
 	relataLatencias(t, latencias)
 }
 
+// Testa que uma reserva que inclui duas caronas, sendo que uma delas não 
+// tem assento livre, é recusada e não altera a outra carona.
 func TestReservaMultiCaronaEAtomica(t *testing.T) {
 	endereco, _ := iniciaServidorTeste(t)
 
@@ -197,7 +203,7 @@ func TestReservaMultiCaronaEAtomica(t *testing.T) {
 	}
 }
 
-// relataLatencias imprime média, mediana e máximo do tempo de resposta.
+// Imprime média, mediana e máximo do tempo de resposta.
 func relataLatencias(t *testing.T, latencias []time.Duration) {
 	t.Helper()
 	if len(latencias) == 0 {

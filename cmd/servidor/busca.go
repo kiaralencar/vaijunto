@@ -22,18 +22,19 @@ type itinerarioEncontrado struct {
 	preco float64
 }
 
+// Limites de segurança para a busca não "explodir"
 const (
 	profundidadeMaximaBusca = 6  // No maximo 6 trechos por itinerario
 	maxItinerarios          = 10 // Para de procurar depois de achar 10 caminhos
 )
 
-// BuscarItinerarios monta o grafo (cidade = no, trecho com assento livre =
-// aresta) a partir das caronas ativas daquela data, e faz uma DFS de origem a
-// destino.
+// BuscarItinerarios monta o grafo a partir das caronas ativas daquela data, 
+// e faz uma DFS de origem a destino.
 func (e *Estado) BuscarItinerarios(origem, destino, data string) []itinerarioEncontrado {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.mu.Lock() // Bloqueia o estado para que não haja alteração de caronas durante a busca
+	defer e.mu.Unlock() // Desbloqueia o estado no final da função
 
+	// Monta o grafo: cada cidade é um nó, cada trecho com assento livre é uma aresta.
 	grafo := make(map[string][]aresta)
 	for _, c := range e.caronas {
 		if !c.Ativa || c.Data != data {
@@ -54,6 +55,8 @@ func (e *Estado) BuscarItinerarios(origem, destino, data string) []itinerarioEnc
 		}
 	}
 
+	// DFS (Depth First Search) para achar caminhos de origem a destino, respeitando
+	// os limites de profundidade e quantidade de itinerarios encontrados.
 	var resultados []itinerarioEncontrado
 	visitado := map[string]bool{origem: true}
 	var caminho []aresta
@@ -61,14 +64,14 @@ func (e *Estado) BuscarItinerarios(origem, destino, data string) []itinerarioEnc
 	var dfs func(atual string)
 	dfs = func(atual string) {
 		if len(resultados) >= maxItinerarios {
-			return
+			return // Itinerários demais? Para de procurar.
 		}
 		if atual == destino && len(caminho) > 0 {
 			resultados = append(resultados, montaItinerario(caminho))
-			return
+			return // Achou o destino? Para de procurar. 
 		}
 		if len(caminho) >= profundidadeMaximaBusca {
-			return
+			return // Já foi fundo demais? Para de procurar.
 		}
 		for _, a := range grafo[atual] {
 			if visitado[a.para] {
@@ -86,7 +89,7 @@ func (e *Estado) BuscarItinerarios(origem, destino, data string) []itinerarioEnc
 	}
 	dfs(origem)
 
-	// Critério de ordenação: mais barato primeiro; em caso de empate no preço,
+	// Critério de ordenação: mais barato primeiro. Em caso de empate no preço,
 	// o itinerário com menos itens (menos baldeações entre motoristas) vem primeiro.
 	sort.Slice(resultados, func(i, j int) bool {
 		if resultados[i].preco != resultados[j].preco {
